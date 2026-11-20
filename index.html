@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>O-RADS + IOTA 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2F3; --surface:#FFFFFF; --sunk:#F5F8F9; --ink:#17252E; --muted:#5B6B74; --line:#D3DCDF;
+  --accent:#23697A; --accent-ink:#FFFFFF; --accent-soft:#DCEBEE;
+  --r0:#8A969C; --r1:#5E8F9C; --r2:#3F8A5C; --r3:#B88A1E; --r4:#C4622A; --r5:#B3363A;
+  --warn-bg:#FBF1DE; --warn-ink:#6E4F0C;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A20; --surface:#16242C; --sunk:#121F26; --ink:#E3ECEF; --muted:#94A6AE; --line:#2A3B44;
+    --accent:#5FB3C4; --accent-ink:#0F1A20; --accent-soft:#1D3640;
+    --r0:#7E8B91; --r1:#6FA6B3; --r2:#5DB07D; --r3:#D9A93A; --r4:#E07B42; --r5:#E05A5E;
+    --warn-bg:#3A2F17; --warn-ink:#F0D18E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A20; --surface:#16242C; --sunk:#121F26; --ink:#E3ECEF; --muted:#94A6AE; --line:#2A3B44;
+  --accent:#5FB3C4; --accent-ink:#0F1A20; --accent-soft:#1D3640;
+  --r0:#7E8B91; --r1:#6FA6B3; --r2:#5DB07D; --r3:#D9A93A; --r4:#E07B42; --r5:#E05A5E;
+  --warn-bg:#3A2F17; --warn-ink:#F0D18E;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 120px}
+header h1{font-size:1.6rem;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em}
+header p{margin:0;color:var(--muted);font-size:0.94rem;max-width:62ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:28px;margin-top:28px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+.step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.step-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.step-num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;display:grid;place-items:center;font-size:0.9rem}
+.step-head h2{font-size:1.08rem;margin:0;font-weight:600}
+.field{margin-top:18px}
+.field:first-of-type{margin-top:0}
+.field[hidden]{display:none}
+.field-label{font-weight:600;font-size:0.93rem;margin-bottom:8px;display:block}
+.field-hint{color:var(--muted);font-size:0.82rem;margin:-4px 0 8px}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{font:inherit;font-size:0.92rem;border:1px solid var(--line);background:var(--sunk);color:var(--ink);padding:9px 14px;border-radius:9px;cursor:pointer;text-align:left;line-height:1.3}
+.seg button small{display:block;color:var(--muted);font-size:0.76rem;margin-top:2px}
+.seg button:hover{border-color:var(--accent)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg button[aria-pressed="true"] small{color:var(--accent-ink);opacity:.85}
+.seg.wide button{flex:1 1 200px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.size-row{display:flex;align-items:center;gap:10px}
+.size-row input{font:inherit;width:120px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--sunk);color:var(--ink)}
+.size-row span{color:var(--muted)}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent);flex:none}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.rules .check{margin-bottom:10px;font-size:0.92rem}
+@media (max-width:600px){.rules{grid-template-columns:1fr}}
+.iota-v{font-size:1.25rem;font-weight:700;margin:2px 0 4px}
+
+/* Result */
+.result{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.score-line{display:flex;align-items:flex-end;gap:14px}
+.score-num{font-size:4.6rem;line-height:0.9;font-weight:700;letter-spacing:-0.03em;color:var(--rc,var(--muted))}
+.score-meta{padding-bottom:6px}
+.score-meta .t{font-size:0.82rem;color:var(--muted)}
+.score-meta .k{font-size:1.15rem;font-weight:700;color:var(--rc,var(--ink))}
+.score-meta .rom{font-size:0.88rem;color:var(--muted)}
+.ramp{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:18px 0 6px}
+.ramp div{height:10px;border-radius:3px;background:var(--line);opacity:.6}
+.ramp div.on{opacity:1}
+.ramp-labels{display:grid;grid-template-columns:repeat(6,1fr);font-size:0.72rem;color:var(--muted);text-align:center}
+.block{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.block h3{font-size:0.85rem;color:var(--muted);font-weight:600;margin:0 0 6px}
+.block p{margin:0}
+.block ul{margin:0;padding-left:18px}
+.block li{margin:3px 0}
+.warn{background:var(--warn-bg);color:var(--warn-ink);border-radius:9px;padding:10px 12px;font-size:0.88rem;margin-top:12px}
+.pending{color:var(--muted)}
+.pending strong{color:var(--ink)}
+
+.save-form{display:grid;gap:10px}
+.save-form label{font-size:0.82rem;color:var(--muted);display:grid;gap:4px}
+.save-form input,.save-form select,.save-form textarea{font:inherit;font-size:0.92rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);width:100%}
+.save-form textarea{resize:vertical;min-height:54px}
+.btn{font:inherit;font-size:0.92rem;font-weight:600;border:0;border-radius:9px;padding:10px 16px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--r5);border:1px solid var(--line)}
+.note{font-size:0.8rem;color:var(--muted)}
+.status{font-size:0.85rem;color:var(--accent);min-height:1.2em}
+
+/* Log */
+.log{margin-top:40px}
+.log h2{font-size:1.25rem;margin:0 0 4px}
+.log > p{color:var(--muted);margin:0 0 16px;font-size:0.92rem;max-width:70ch}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:0.88rem}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+td.wrap-cell{white-space:normal;min-width:220px}
+th{font-weight:600;color:var(--muted);background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;min-width:26px;text-align:center;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px}
+.del{font:inherit;background:none;border:0;color:var(--muted);cursor:pointer;text-decoration:underline;font-size:0.82rem}
+.xtab td,.xtab th{text-align:center}
+.xtab th:first-child,.xtab td:first-child{text-align:left}
+.empty{padding:22px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr;gap:16px}
+#csvBox{width:100%;min-height:120px;font-family:ui-monospace,Menlo,monospace;font-size:0.78rem;margin-top:10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--ink);padding:8px}
+footer{margin-top:40px;color:var(--muted);font-size:0.8rem;max-width:80ch}
+
+/* Mobile bottom bar */
+.bar{display:none}
+@media (max-width:900px){
+  .result{position:static}
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:10px 18px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));align-items:center;gap:12px;font:inherit;color:var(--ink);cursor:pointer;width:100%;text-align:left;border-left:0;border-right:0;border-bottom:0}
+  .bar .n{font-size:1.5rem;font-weight:700;color:var(--rc,var(--muted))}
+  .bar .l{font-size:0.9rem}
+  .bar .go{margin-left:auto;font-size:0.82rem;color:var(--accent)}
+}
+@media (prefers-reduced-motion:no-preference){
+  .score-num{transition:color .2s}
+  .ramp div{transition:opacity .2s, background-color .2s}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>O-RADS + IOTA 계산기</h1>
+    <p>초음파 소견을 고르면 O-RADS US v2022 점수와 권고 관리, IOTA Simple Rules 판정을 함께 보여줍니다. 판정한 증례에 병리 결과를 붙여 기록해 두면 나중에 비교 분석용 데이터가 됩니다.</p>
+  </header>
+
+  <div class="grid">
+    <main>
+      <section class="step">
+        <div class="step-head"><span class="step-num">1</span><h2>환자</h2></div>
+        <div class="field" data-f="meno">
+          <span class="field-label">폐경 상태</span>
+          <p class="field-hint">무월경 1년 이상이면 폐경 후. 불확실하거나 자궁 절제 상태면 50세 초과를 기준으로 (55세 이상 late).</p>
+          <div class="seg wide">
+            <button data-k="meno" data-v="pre">폐경 전</button>
+            <button data-k="meno" data-v="early">폐경 후 5년 미만<small>early postmenopausal</small></button>
+            <button data-k="meno" data-v="late">폐경 후 5년 이상<small>late postmenopausal</small></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="step-num">2</span><h2>병변</h2></div>
+
+        <div class="field" data-f="cat">
+          <span class="field-label">병변 분류</span>
+          <div class="seg wide">
+            <button data-k="cat" data-v="cystic">낭성 병변<small>Uni-, bi-, multilocular cyst</small></button>
+            <button data-k="cat" data-v="solid">고형 병변<small>Solid / solid-appearing, ≥80% solid</small></button>
+            <button data-k="cat" data-v="classic">전형적 양성 병변<small>Classic benign lesion</small></button>
+            <button data-k="cat" data-v="normal">병변 없음, 생리적 낭종<small>Follicle, corpus luteum</small></button>
+            <button data-k="cat" data-v="incomplete">평가 불완전<small>기술적 요인으로 특성 판단 불가</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="classic" hidden>
+          <span class="field-label">병변 종류</span>
+          <p class="field-hint">비전형적 소견이 하나라도 있으면 낭성 또는 고형 병변으로 분류하세요.</p>
+          <div class="seg wide">
+            <button data-k="classic" data-v="hemorrhagic">Hemorrhagic cyst<small>Unilocular, 내부 혈류 없음, reticular pattern 또는 retractile clot</small></button>
+            <button data-k="classic" data-v="dermoid">Dermoid cyst<small>≤3 locules, 혈류 없음, shadowing 동반 hyperechoic component 등</small></button>
+            <button data-k="classic" data-v="endometrioma">Endometrioma<small>≤3 locules, 혈류 없음, ground-glass echo, smooth wall</small></button>
+            <button data-k="classic" data-v="paraovarian">Paraovarian cyst<small>난소와 분리된 simple cyst</small></button>
+            <button data-k="classic" data-v="pic">Peritoneal inclusion cyst<small>주변 장기 모양을 따르는 액체 저류</small></button>
+            <button data-k="classic" data-v="hydrosalpinx">Hydrosalpinx<small>무에코 관 모양 구조</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="loc" hidden>
+          <span class="field-label">방(locule) 수</span>
+          <div class="seg">
+            <button data-k="loc" data-v="uni">Unilocular<small>1개</small></button>
+            <button data-k="loc" data-v="bi">Bilocular<small>2개, 완전 격막 1개</small></button>
+            <button data-k="loc" data-v="multi">Multilocular<small>3개 이상</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="solidComp" hidden>
+          <span class="field-label">고형 성분</span>
+          <p class="field-hint">벽이나 격막에서 내강으로 3 mm 이상 돌출. 혈액 성분과 dermoid 내용물은 제외.</p>
+          <div class="seg">
+            <button data-k="solidComp" data-v="no">없음</button>
+            <button data-k="solidComp" data-v="yes">있음</button>
+          </div>
+        </div>
+
+        <div class="field" data-f="content" hidden>
+          <span class="field-label">낭종 내용물</span>
+          <div class="seg">
+            <button data-k="content" data-v="simple">Simple<small>무에코, smooth</small></button>
+            <button data-k="content" data-v="nonsimple">Non-simple<small>내부 에코 또는 불완전 격막</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="pp" hidden>
+          <span class="field-label">고형 성분 형태</span>
+          <p class="field-hint">Papillary projection은 3면이 액체로 둘러싸인 고형 성분입니다.</p>
+          <div class="seg">
+            <button data-k="pp" data-v="lt4">Papillary projection 4개 미만<small>또는 pp가 아닌 고형 성분</small></button>
+            <button data-k="pp" data-v="ge4">Papillary projection 4개 이상</button>
+          </div>
+        </div>
+
+        <div class="field" data-f="wall" hidden>
+          <span class="field-label">내벽, 격막</span>
+          <div class="seg">
+            <button data-k="wall" data-v="smooth">Smooth</button>
+            <button data-k="wall" data-v="irregular">Irregular<small>높이 3 mm 미만의 불규칙 비후</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="contour" hidden>
+          <span class="field-label">외곽선</span>
+          <div class="seg">
+            <button data-k="contour" data-v="smooth">Smooth</button>
+            <button data-k="contour" data-v="irregular">Irregular<small>lobulated 포함</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="cs" hidden>
+          <span class="field-label">Color score</span>
+          <div class="seg">
+            <button data-k="cs" data-v="1">CS 1<small>혈류 없음</small></button>
+            <button data-k="cs" data-v="2">CS 2<small>Minimal</small></button>
+            <button data-k="cs" data-v="3">CS 3<small>Moderate</small></button>
+            <button data-k="cs" data-v="4">CS 4<small>Very strong</small></button>
+          </div>
+        </div>
+
+        <div class="field" data-f="shadow" hidden>
+          <span class="field-label">Acoustic shadowing</span>
+          <p class="field-hint">미만성 또는 넓은 범위여야 하며 굴절 artifact는 제외합니다.</p>
+          <div class="seg">
+            <button data-k="shadow" data-v="yes">있음</button>
+            <button data-k="shadow" data-v="no">없음</button>
+          </div>
+        </div>
+
+        <div class="field" data-f="size" hidden>
+          <label class="field-label" for="sizeInput">최대 직경</label>
+          <div class="size-row">
+            <input id="sizeInput" type="number" inputmode="decimal" min="0" step="0.1" placeholder="예: 4.2">
+            <span>cm</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="step-num">3</span><h2>동반 소견</h2></div>
+        <label class="check">
+          <input type="checkbox" id="ascites">
+          <span>복수 또는 복막 결절<br><span class="note">다른 악성·비악성 원인으로 설명되지 않는 경우. O-RADS 3–4 병변을 5로 상향합니다.</span></span>
+        </label>
+      </section>
+
+      <section class="step">
+        <div class="step-head"><span class="step-num">4</span><h2>IOTA Simple Rules</h2></div>
+        <p class="field-hint" style="margin:0 0 14px">해당하는 소견을 모두 체크하세요. O-RADS와 정의가 다른 항목이 있어 따로 입력합니다. IOTA에서 solid component는 3 mm 기준이 아니고, papillary structure는 높이 3 mm 이상입니다.</p>
+        <div class="rules">
+          <div>
+            <span class="field-label">B 소견 (양성 시사)</span>
+            <label class="check"><input type="checkbox" data-iota="B1"><span>B1 Unilocular cyst</span></label>
+            <label class="check"><input type="checkbox" data-iota="B2"><span>B2 고형 성분 있으나 가장 큰 것 &lt;7 mm</span></label>
+            <label class="check"><input type="checkbox" data-iota="B3"><span>B3 Acoustic shadow</span></label>
+            <label class="check"><input type="checkbox" data-iota="B4"><span>B4 Smooth multilocular tumor, 최대 직경 &lt;100 mm</span></label>
+            <label class="check"><input type="checkbox" data-iota="B5"><span>B5 혈류 없음 (CS 1)</span></label>
+          </div>
+          <div>
+            <span class="field-label">M 소견 (악성 시사)</span>
+            <label class="check"><input type="checkbox" data-iota="M1"><span>M1 Irregular solid tumor</span></label>
+            <label class="check"><input type="checkbox" data-iota="M2"><span>M2 복수</span></label>
+            <label class="check"><input type="checkbox" data-iota="M3"><span>M3 Papillary structure 4개 이상</span></label>
+            <label class="check"><input type="checkbox" data-iota="M4"><span>M4 Irregular multilocular-solid tumor, 최대 직경 ≥100 mm</span></label>
+            <label class="check"><input type="checkbox" data-iota="M5"><span>M5 매우 강한 혈류 (CS 4)</span></label>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="result" id="result">
+      <div class="card" id="resultCard"></div>
+      <div class="card" id="iotaCard" style="margin-top:16px"></div>
+      <div class="card" style="margin-top:16px">
+        <div class="save-form">
+          <strong style="font-size:1rem">이 증례 기록하기</strong>
+          <label>증례 번호
+            <input id="caseId" type="text" placeholder="예: 2026-0142" autocomplete="off">
+          </label>
+          <label>병리 결과
+            <select id="path">
+              <option value="미확인">미확인 (수술 전, 추적 중)</option>
+              <option value="Benign cyst">Benign cyst</option>
+              <option value="Cystadenoma">Cystadenoma</option>
+              <option value="Borderline">Borderline tumor</option>
+              <option value="Malignant">Malignant</option>
+              <option value="기타">기타</option>
+            </select>
+          </label>
+          <label>메모
+            <textarea id="memo" placeholder="조직형, 추적 결과 등"></textarea>
+          </label>
+          <button class="btn" id="saveBtn" disabled>기록 저장</button>
+          <div class="status" id="saveStatus" aria-live="polite"></div>
+          <p class="note">기록은 이 브라우저에만 저장됩니다. 이름, 등록번호, 생년월일 등 환자 식별정보는 입력하지 마세요.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="log" id="log">
+    <h2>증례 기록</h2>
+    <p>O-RADS 판정과 병리 결과를 함께 모아 두는 곳입니다. 병리 결과가 나오면 항목을 다시 저장하지 말고 CSV로 옮겨 엑셀에서 정리하는 것을 권합니다.</p>
+    <div class="tools">
+      <button class="btn ghost" id="copyCsv">CSV 복사</button>
+      <button class="btn danger" id="clearAll">전체 삭제</button>
+      <span class="status" id="logStatus" aria-live="polite"></span>
+    </div>
+    <textarea id="csvBox" hidden readonly></textarea>
+    <div class="two">
+      <div class="scroll" id="xtab"></div>
+      <div class="scroll" id="table"></div>
+    </div>
+  </section>
+
+  <footer>
+    ACR O-RADS US v2022 (2022년 11월 발표) 위험 분류표, Classic Benign Lesions 표, IOTA Simple Rules를 기준으로 만들었습니다. 진료 판단을 돕는 참고 도구이며, 최종 판정과 관리 결정은 영상 소견 전체와 임상 정보를 종합해 전문의가 내려야 합니다.
+  </footer>
+</div>
+
+<button class="bar" id="bar" type="button">
+  <span class="n" id="barN">–</span>
+  <span class="l" id="barL">소견을 선택하세요</span>
+  <span class="go">결과 보기</span>
+</button>
+
+<script>
+(function(){
+  const S = {meno:null, cat:null, classic:null, loc:null, solidComp:null, content:null, pp:null, wall:null, contour:null, cs:null, shadow:null, size:null, ascites:false};
+  const EXTRA = ['paraovarian','pic','hydrosalpinx'];
+  const CLASSIC_NAME = {hemorrhagic:'hemorrhagic cyst', dermoid:'dermoid cyst', endometrioma:'endometrioma', paraovarian:'paraovarian cyst', pic:'peritoneal inclusion cyst', hydrosalpinx:'hydrosalpinx'};
+  const CAT = {
+    0:{k:'평가 불완전', rom:'해당 없음'},
+    1:{k:'정상 난소', rom:'해당 없음'},
+    2:{k:'거의 확실히 양성', rom:'악성 위험 <1%'},
+    3:{k:'저위험', rom:'악성 위험 1–<10%'},
+    4:{k:'중간 위험', rom:'악성 위험 10–<50%'},
+    5:{k:'고위험', rom:'악성 위험 ≥50%'}
+  };
+  const MG = {
+    0:['US 재검 또는 MRI'],
+    1:['추가 조치 없음'],
+    3:['영상: 수술로 절제하지 않으면 6개월 이내 추적 US 고려', '고형 병변이면 US specialist 또는 MRI (O-RADS MRI score) 고려', '임상: 부인과 (gynecologist)'],
+    4:['영상: US specialist, MRI (O-RADS MRI score), 또는 gyn-oncologist 프로토콜 중 선택', '임상: Gyn-oncologist 협진 하 부인과 진료, 또는 gyn-oncologist 단독 진료'],
+    5:['영상: Gyn-oncologist 프로토콜에 따름', '임상: Gyn-oncologist']
+  };
+  const FU_NOTE = '추적 US에서 평균 직경이 10–15% 이상 줄면 추가 감시 불필요. 안정적이면 첫 검사 후 24개월에 추적 US, 커지면 12·24개월에 추적 후 부인과 판단. 형태가 바뀌면 렉시콘으로 재평가.';
+
+  function visible(s){
+    const v = new Set(['meno','cat']);
+    if(s.cat==='classic'){ v.add('classic'); if(s.classic && !EXTRA.includes(s.classic)) v.add('size'); }
+    if(s.cat==='cystic'){
+      v.add('loc');
+      if(s.loc) v.add('solidComp');
+      if(s.solidComp==='yes'){ if(s.loc==='uni') v.add('pp'); else if(s.loc) v.add('cs'); }
+      if(s.solidComp==='no'){
+        if(s.loc==='uni'){
+          v.add('content');
+          if(s.content==='simple') v.add('size');
+          if(s.content==='nonsimple'){ v.add('wall'); if(s.wall==='smooth') v.add('size'); }
+        }
+        if(s.loc==='bi'){ v.add('wall'); if(s.wall==='smooth') v.add('size'); }
+        if(s.loc==='multi'){ v.add('wall'); if(s.wall==='smooth'){ v.add('cs'); if(s.cs && s.cs<4) v.add('size'); } }
+      }
+    }
+    if(s.cat==='solid'){ v.add('contour'); if(s.contour==='smooth'){ v.add('cs'); if(s.cs===2||s.cs===3) v.add('shadow'); } }
+    return v;
+  }
+
+  const LABEL = {meno:'폐경 상태', cat:'병변 분류', classic:'병변 종류', loc:'방(locule) 수', solidComp:'고형 성분', content:'낭종 내용물', pp:'고형 성분 형태', wall:'내벽, 격막', contour:'외곽선', cs:'Color score', shadow:'Acoustic shadowing', size:'최대 직경'};
+
+  function smoothCystUnder10(s, label){
+    // Unilocular smooth non-simple or bilocular smooth, <10 cm
+    if(s.size<=3){
+      return {score:2, reason:label+', ≤3 cm', mgmt: s.meno==='pre' ? ['추가 영상 불필요'] : ['12개월 후 추적 US'], notes: s.meno==='pre'?[]:[FU_NOTE]};
+    }
+    return {score:2, reason:label+', >3 cm, <10 cm', mgmt:['6개월 후 추적 US'], notes:[FU_NOTE]};
+  }
+
+  function core(s){
+    switch(s.cat){
+      case 'incomplete':
+        return {score:0, reason:'기술적 요인으로 위험 분류에 필요한 소견을 정확히 판단할 수 없음', mgmt:MG[0]};
+      case 'normal':
+        if(s.meno!=='pre') return {blocked:'폐경 후에는 생리적 낭종으로 분류하지 않습니다. 낭성 병변 → Unilocular → Simple로 입력하세요.'};
+        return {score:1, reason:'병변 없음 또는 생리적 낭종 (follicle ≤3 cm, corpus luteum 대개 ≤3 cm)', mgmt:MG[1]};
+      case 'classic': {
+        const nm = CLASSIC_NAME[s.classic];
+        if(EXTRA.includes(s.classic)) return {score:2, reason:'Typical '+nm+' (난소 외 병변, 크기 무관)', mgmt:['추가 영상 불필요','임상: 필요 시 부인과']};
+        if(s.classic==='hemorrhagic' && s.meno==='late') return {blocked:'폐경 후 5년 이상에서는 typical hemorrhagic cyst가 나타나지 않아야 합니다. 다른 렉시콘 소견(unilocular, multilocular 등)으로 다시 분류하세요.'};
+        const notes = ['비전형 소견이 보이면 다른 렉시콘으로 분류. 소견이 시사적일 뿐 확신이 없으면 3개월 이내 추적 US 고려.'];
+        if(s.size>=10) return {score:3, reason:'Typical '+nm+', ≥10 cm', mgmt:MG[3], notes};
+        let mgmt;
+        if(s.classic==='hemorrhagic'){
+          if(s.meno==='pre') mgmt = s.size<=5 ? ['추가 영상 불필요'] : ['2–3개월 후 추적 US'];
+          else mgmt = ['확인을 위해 다음 중 선택: 2–3개월 후 추적 US, US specialist, MRI (O-RADS MRI score)'];
+        } else if(s.classic==='dermoid'){
+          mgmt = s.size<=3 ? ['12개월 후 추적 US 고려'] : ['절제하지 않으면 12개월 후 추적 US'];
+          notes.push('안정적이면 첫 검사 후 24개월에 추적 US, 이후 임상적으로 필요 시.');
+        } else {
+          if(s.meno==='pre') mgmt = ['절제하지 않으면 12개월 후 추적 US'];
+          else mgmt = ['첫 검사라면 확인을 위해 다음 중 선택: 2–3개월 후 추적 US, US specialist, MRI (O-RADS MRI score)','이후 절제하지 않으면 12개월 후 추적 US'];
+          notes.push('폐경 후, 그리고 10년 이상 지속된 endometrioma는 악성 위험이 높아진다는 근거가 있습니다.');
+        }
+        mgmt.push('임상: 필요 시 부인과');
+        return {score:2, reason:'Typical '+nm+', <10 cm', mgmt, notes};
+      }
+      case 'cystic': {
+        const solidYes = s.solidComp==='yes';
+        if(s.loc==='uni' && solidYes){
+          return s.pp==='ge4'
+            ? {score:5, reason:'Unilocular cyst, papillary projection ≥4개, 크기·CS 무관', mgmt:MG[5]}
+            : {score:4, reason:'Unilocular cyst, 고형 성분 있음 (pp <4개 또는 pp가 아닌 고형 성분), 크기 무관', mgmt:MG[4]};
+        }
+        if((s.loc==='bi'||s.loc==='multi') && solidYes){
+          const nm = s.loc==='bi'?'Bilocular':'Multilocular';
+          return s.cs>=3
+            ? {score:5, reason:nm+' cyst, 고형 성분 있음, CS 3–4', mgmt:MG[5]}
+            : {score:4, reason:nm+' cyst, 고형 성분 있음, CS 1–2', mgmt:MG[4]};
+        }
+        if(s.loc==='uni'){
+          if(s.content==='simple'){
+            if(s.size>=10) return {score:3, reason:'Unilocular cyst, smooth, ≥10 cm', mgmt:MG[3]};
+            if(s.meno==='pre'){
+              if(s.size<=3) return {score:1, reason:'폐경 전 simple cyst ≤3 cm → follicle로 분류', mgmt:MG[1]};
+              if(s.size<=5) return {score:2, reason:'Simple cyst, >3 cm, ≤5 cm (폐경 전)', mgmt:['추가 영상 불필요']};
+              return {score:2, reason:'Simple cyst, >5 cm, <10 cm (폐경 전)', mgmt:['12개월 후 추적 US'], notes:[FU_NOTE]};
+            }
+            if(s.size<=3) return {score:2, reason:'Simple cyst, ≤3 cm (폐경 후)', mgmt:['추가 영상 불필요']};
+            return {score:2, reason:'Simple cyst, >3 cm, <10 cm (폐경 후)', mgmt:['12개월 후 추적 US'], notes:[FU_NOTE]};
+          }
+          if(s.wall==='irregular') return {score:3, reason:'Unilocular cyst, irregular inner wall, 크기 무관', mgmt:MG[3]};
+          if(s.size>=10) return {score:3, reason:'Unilocular cyst, smooth, ≥10 cm', mgmt:MG[3]};
+          return smoothCystUnder10(s, 'Unilocular non-simple cyst, smooth');
+        }
+        if(s.loc==='bi'){
+          if(s.wall==='irregular') return {score:4, reason:'Bilocular cyst, 고형 성분 없음, irregular, 크기·CS 무관', mgmt:MG[4]};
+          if(s.size>=10) return {score:3, reason:'Bilocular cyst, smooth, ≥10 cm', mgmt:MG[3]};
+          const r = smoothCystUnder10(s, 'Bilocular cyst, smooth');
+          r.notes = (r.notes||[]).concat(['Bilocular smooth cyst는 CS와 관계없이 악성 위험이 낮습니다.']);
+          return r;
+        }
+        if(s.loc==='multi'){
+          if(s.wall==='irregular') return {score:4, reason:'Multilocular cyst, 고형 성분 없음, irregular, 크기·CS 무관', mgmt:MG[4]};
+          if(s.cs===4) return {score:4, reason:'Multilocular cyst, smooth, CS 4, 크기 무관', mgmt:MG[4]};
+          if(s.size>=10) return {score:4, reason:'Multilocular cyst, smooth, ≥10 cm, CS <4', mgmt:MG[4]};
+          return {score:3, reason:'Multilocular cyst, smooth, <10 cm, CS <4', mgmt:MG[3]};
+        }
+        return null;
+      }
+      case 'solid': {
+        if(s.contour==='irregular') return {score:5, reason:'Solid lesion, irregular outer contour, 크기·CS 무관', mgmt:MG[5]};
+        if(s.cs===4) return {score:5, reason:'Solid lesion, smooth, CS 4 (shadowing 무관)', mgmt:MG[5]};
+        if(s.cs===1) return {score:3, reason:'Solid lesion, smooth, CS 1 (shadowing 무관)', mgmt:MG[3]};
+        return s.shadow==='yes'
+          ? {score:3, reason:'Solid lesion, smooth, shadowing 있음, CS 2–3', mgmt:MG[3]}
+          : {score:4, reason:'Solid lesion, smooth, shadowing 없음, CS 2–3', mgmt:MG[4]};
+      }
+    }
+    return null;
+  }
+
+  function compute(s){
+    const v = visible(s);
+    const order = ['meno','cat','classic','loc','solidComp','content','pp','wall','contour','cs','shadow','size'];
+    const missing = order.filter(k => v.has(k) && (s[k]===null || s[k]===undefined));
+    if(missing.length) return {missing: missing.map(k=>LABEL[k])};
+    const r = core(s);
+    if(!r || r.blocked) return r || {missing:['병변 분류']};
+    r.notes = r.notes || [];
+    r.warnings = [];
+    r.mgmt = r.mgmt.slice();
+    if(s.ascites){
+      if(r.score===3 || r.score===4){
+        r.reason += ' + 복수 또는 복막 결절 → O-RADS 5로 상향';
+        r.score = 5; r.mgmt = MG[5].slice(); r.upgraded = true;
+      } else if(r.score<=2){
+        r.warnings.push('O-RADS 0–2 소견에 복수나 복막 결절이 동반되면 다른 악성·비악성 원인을 먼저 고려해야 합니다.');
+      }
+    }
+    return r;
+  }
+
+  function summarize(s){
+    const v = visible(s); const parts=[];
+    const map = {
+      cat:{cystic:'낭성',solid:'고형',classic:'전형적 양성',normal:'정상/생리적',incomplete:'평가 불완전'},
+      loc:{uni:'Unilocular',bi:'Bilocular',multi:'Multilocular'},
+      solidComp:{yes:'고형 성분(+)',no:'고형 성분(-)'},
+      content:{simple:'simple',nonsimple:'non-simple'},
+      pp:{lt4:'pp <4',ge4:'pp ≥4'},
+      wall:{smooth:'smooth wall',irregular:'irregular wall'},
+      contour:{smooth:'smooth contour',irregular:'irregular contour'},
+      shadow:{yes:'shadowing(+)',no:'shadowing(-)'}
+    };
+    ['cat','classic','loc','solidComp','content','pp','wall','contour'].forEach(k=>{
+      if(!v.has(k)||s[k]==null) return;
+      if(k==='classic') parts.push(CLASSIC_NAME[s[k]]); else parts.push(map[k][s[k]]);
+    });
+    if(v.has('cs')&&s.cs) parts.push('CS '+s.cs);
+    if(v.has('shadow')&&s.shadow) parts.push(map.shadow[s.shadow]);
+    if(v.has('size')&&s.size!=null) parts.push(s.size+' cm');
+    if(s.ascites) parts.push('복수/복막 결절');
+    return parts.join(', ');
+  }
+  const MENO = {pre:'폐경 전', early:'폐경 후 <5년', late:'폐경 후 ≥5년'};
+
+  const IOTA = new Set();
+  function iotaResult(){
+    const b=[...IOTA].filter(x=>x[0]==='B').sort(), m=[...IOTA].filter(x=>x[0]==='M').sort();
+    let label, color, text;
+    if(!b.length && !m.length){ label='입력 전'; color='var(--muted)'; text='해당하는 B, M 소견을 체크하세요. 아무 소견도 없으면 판정 불가로 봅니다.'; }
+    else if(b.length && !m.length){ label='양성 (Benign)'; color='var(--r2)'; text='B 소견만 있음.'; }
+    else if(m.length && !b.length){ label='악성 (Malignant)'; color='var(--r5)'; text='M 소견만 있음.'; }
+    else { label='판정 불가 (Inconclusive)'; color='var(--r3)'; text='B와 M 소견이 함께 있음. 전문가 초음파, ADNEX 등 다른 방법으로 추가 평가가 필요합니다.'; }
+    return {label, color, text, feats:b.concat(m).join(' ')};
+  }
+  function renderIota(){
+    const r=iotaResult(); const el=document.getElementById('iotaCard');
+    el.innerHTML='<div class="t note">IOTA Simple Rules</div><div class="iota-v" style="color:'+r.color+'">'+esc(r.label)+'</div><p style="margin:0;font-size:0.9rem">'+esc(r.text)+(r.feats?' <span class="note">('+esc(r.feats)+')</span>':'')+'</p>';
+  }
+  document.querySelectorAll('[data-iota]').forEach(cb=>cb.addEventListener('change',()=>{
+    cb.checked ? IOTA.add(cb.dataset.iota) : IOTA.delete(cb.dataset.iota); renderIota();
+  }));
+
+  // --- UI ---
+  const resultCard = document.getElementById('resultCard');
+  const saveBtn = document.getElementById('saveBtn');
+  const bar = document.getElementById('bar'), barN = document.getElementById('barN'), barL = document.getElementById('barL');
+  let current = null;
+
+  function esc(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function riskColor(n){ return 'var(--r'+n+')'; }
+
+  function render(){
+    const v = visible(S);
+    document.querySelectorAll('.field[data-f]').forEach(el=>{ el.hidden = !v.has(el.dataset.f); });
+    document.querySelectorAll('.seg button').forEach(b=>{
+      const val = S[b.dataset.k];
+      b.setAttribute('aria-pressed', String(val!==null && String(val)===b.dataset.v));
+    });
+    const r = compute(S); current = r;
+    let html = '';
+    if(r && typeof r.score==='number'){
+      const c = CAT[r.score];
+      resultCard.style.setProperty('--rc', riskColor(r.score));
+      html += '<div class="score-line"><div class="score-num">'+r.score+'</div><div class="score-meta"><div class="t">O-RADS US</div><div class="k">'+c.k+'</div><div class="rom">'+c.rom+'</div></div></div>';
+      html += '<div class="ramp">'+[0,1,2,3,4,5].map(i=>'<div class="'+(i===r.score?'on':'')+'" style="'+(i===r.score?'background:'+riskColor(i):'')+'"></div>').join('')+'</div>';
+      html += '<div class="ramp-labels"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>';
+      html += '<div class="block"><h3>판정 근거</h3><p>'+esc(r.reason)+'</p></div>';
+      html += '<div class="block"><h3>권고 관리</h3><ul>'+r.mgmt.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>';
+      if(r.notes.length) html += '<div class="block"><h3>참고</h3><ul>'+r.notes.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>';
+      r.warnings.forEach(w=>{ html += '<div class="warn">'+esc(w)+'</div>'; });
+      saveBtn.disabled = false;
+      bar.style.setProperty('--rc', riskColor(r.score));
+      barN.textContent = r.score; barL.textContent = 'O-RADS '+r.score+' '+c.k;
+    } else {
+      resultCard.style.removeProperty('--rc');
+      saveBtn.disabled = true;
+      html += '<div class="score-line"><div class="score-num">–</div><div class="score-meta"><div class="t">O-RADS US</div><div class="k" style="color:var(--muted)">판정 대기</div></div></div>';
+      html += '<div class="ramp">'+[0,1,2,3,4,5].map(()=>'<div></div>').join('')+'</div>';
+      html += '<div class="ramp-labels"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>';
+      if(r && r.blocked){
+        html += '<div class="warn">'+esc(r.blocked)+'</div>';
+        barN.textContent='!'; barL.textContent='분류를 다시 확인하세요';
+      } else {
+        html += '<div class="block pending"><h3>남은 항목</h3><p><strong>'+esc((r&&r.missing||[]).join(', '))+'</strong></p></div>';
+        barN.textContent='–'; barL.textContent='남은 항목: '+((r&&r.missing&&r.missing[0])||'');
+      }
+      bar.style.removeProperty('--rc');
+    }
+    resultCard.innerHTML = html;
+  }
+
+  const RESET_BELOW = {
+    cat:['classic','loc','solidComp','content','pp','wall','contour','cs','shadow','size'],
+    loc:['solidComp','content','pp','wall','cs','shadow'],
+    solidComp:['content','pp','wall','cs'],
+    content:['wall'],
+    classic:[]
+  };
+
+  document.querySelectorAll('.seg button').forEach(b=>{
+    b.type='button';
+    b.addEventListener('click', ()=>{
+      const k=b.dataset.k; let val=b.dataset.v;
+      if(k==='cs') val=parseInt(val,10);
+      const changed = S[k]!==val;
+      S[k]=val;
+      if(changed && RESET_BELOW[k]) RESET_BELOW[k].forEach(x=>{ if(x!=='size') S[x]=null; });
+      if(changed && k==='cat'){ S.size=null; document.getElementById('sizeInput').value=''; }
+      render();
+    });
+  });
+  document.getElementById('sizeInput').addEventListener('input', e=>{
+    const n = parseFloat(e.target.value);
+    S.size = (isNaN(n)||n<0) ? null : n;
+    render();
+  });
+  document.getElementById('ascites').addEventListener('change', e=>{ S.ascites = e.target.checked; render(); });
+  bar.addEventListener('click', ()=>{ document.getElementById('result').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth', block:'start'}); });
+
+  // --- Case log ---
+  const KEY='orads-cases-v1';
+  function load(){ try{ const t=localStorage.getItem(KEY); return t?JSON.parse(t):[]; }catch(e){ return []; } }
+  function store(list){ try{ localStorage.setItem(KEY, JSON.stringify(list)); return true; }catch(e){ return false; } }
+  let cases = load();
+  const PATHS=['Benign cyst','Cystadenoma','Borderline','Malignant','기타','미확인'];
+
+  function renderLog(){
+    const xt=document.getElementById('xtab'), tb=document.getElementById('table');
+    if(!cases.length){
+      xt.innerHTML='<div class="empty">아직 기록이 없습니다. 판정 후 오른쪽의 기록 저장을 누르면 여기에 쌓입니다.</div>';
+      tb.innerHTML=''; tb.style.display='none'; return;
+    }
+    tb.style.display='';
+    const scores=[0,1,2,3,4,5].filter(n=>cases.some(c=>c.score===n));
+    let h='<table class="xtab"><thead><tr><th>O-RADS × 병리</th>'+PATHS.map(p=>'<th>'+p+'</th>').join('')+'<th>합계</th></tr></thead><tbody>';
+    scores.forEach(n=>{
+      const row=cases.filter(c=>c.score===n);
+      h+='<tr><td><span class="pill" style="background:'+riskColor(n)+'">'+n+'</span></td>'+PATHS.map(p=>{const k=row.filter(c=>c.path===p).length; return '<td>'+(k||'·')+'</td>';}).join('')+'<td><strong>'+row.length+'</strong></td></tr>';
+    });
+    h+='</tbody></table>';
+    xt.innerHTML=h;
+    let t='<table><thead><tr><th>기록일</th><th>증례 번호</th><th>O-RADS</th><th>IOTA</th><th>병리</th><th>소견</th><th>메모</th><th></th></tr></thead><tbody>';
+    cases.slice().reverse().forEach(c=>{
+      t+='<tr><td>'+esc(c.date)+'</td><td>'+esc(c.caseId||'')+'</td><td><span class="pill" style="background:'+riskColor(c.score)+'">'+c.score+'</span></td><td>'+esc(c.iota||'')+'</td><td>'+esc(c.path)+'</td><td class="wrap-cell">'+esc(c.findings)+'</td><td class="wrap-cell">'+esc(c.memo||'')+'</td><td><button class="del" data-id="'+c.id+'">삭제</button></td></tr>';
+    });
+    t+='</tbody></table>';
+    tb.innerHTML=t;
+    tb.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
+      cases=cases.filter(c=>c.id!==b.dataset.id); store(cases); renderLog();
+    }));
+  }
+
+  saveBtn.addEventListener('click', ()=>{
+    if(!current || typeof current.score!=='number') return;
+    const rec = {
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      date: new Date().toISOString().slice(0,10),
+      caseId: document.getElementById('caseId').value.trim(),
+      score: current.score,
+      reason: current.reason,
+      findings: summarize(S),
+      meno: MENO[S.meno]||'',
+      iota: (function(){const r=iotaResult(); return r.feats? r.label+' ('+r.feats+')' : '';})(),
+      path: document.getElementById('path').value,
+      memo: document.getElementById('memo').value.trim()
+    };
+    cases.push(rec);
+    const ok = store(cases);
+    const st=document.getElementById('saveStatus');
+    st.textContent = ok ? '저장했습니다. 아래 증례 기록에서 확인하세요.' : '이 브라우저에서는 저장 공간을 쓸 수 없어 이번 방문 동안만 유지됩니다.';
+    document.getElementById('caseId').value=''; document.getElementById('memo').value=''; document.getElementById('path').value='미확인';
+    renderLog();
+  });
+
+  function toCsv(){
+    const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+    const head=['기록일','증례번호','O-RADS','판정근거','소견','IOTA Simple Rules','폐경상태','병리','메모'];
+    const rows=cases.map(c=>[c.date,c.caseId,c.score,c.reason,c.findings,c.iota||'',c.meno,c.path,c.memo].map(q).join(','));
+    return [head.map(q).join(',')].concat(rows).join('\n');
+  }
+  document.getElementById('copyCsv').addEventListener('click', async ()=>{
+    const st=document.getElementById('logStatus'); const box=document.getElementById('csvBox');
+    if(!cases.length){ st.textContent='복사할 기록이 없습니다.'; return; }
+    const csv=toCsv();
+    try{ await navigator.clipboard.writeText(csv); st.textContent='CSV를 복사했습니다. 엑셀에 붙여넣으세요.'; box.hidden=true; }
+    catch(e){ box.hidden=false; box.value=csv; box.focus(); box.select(); st.textContent='자동 복사가 막혀 있어요. 아래 내용을 직접 복사하세요.'; }
+  });
+  document.getElementById('clearAll').addEventListener('click', ()=>{
+    if(!cases.length) return;
+    if(confirm('저장된 증례 '+cases.length+'건을 모두 삭제합니다. 되돌릴 수 없습니다.')){ cases=[]; store(cases); renderLog(); document.getElementById('logStatus').textContent='전체 삭제했습니다.'; }
+  });
+
+  render(); renderIota(); renderLog();
+})();
+</script>
+</body>
+</html>
